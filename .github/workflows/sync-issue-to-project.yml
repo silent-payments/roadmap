@@ -1,0 +1,113 @@
+name: Sync Issue to Project
+
+on:
+  issues:
+    types: [opened, edited]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue number to sync (optional - syncs all if empty)'
+        required: false
+
+jobs:
+  sync-to-project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Sync Issue to Project
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_V2_SYNC_TOKEN }}
+          script: |
+            // Skip if this edit was made by the workflow itself
+            if (context.eventName === 'issues' && context.payload.action === 'edited') {
+              const sender = context.payload.sender;
+              if (sender.login === 'github-actions[bot]' || sender.type === 'Bot') {
+                console.log('Skipping - issue was edited by workflow/bot');
+                return;
+              }
+            }
+            
+            // Load external scripts
+            const getIssueData = require('./.github/scripts/get-issue-data.js');
+            const parseIssue = require('./.github/scripts/parse-issue.js');
+            const syncProject = require('./.github/scripts/sync-project.js');
+            
+            // Get issue data
+            const inputs = {
+              issue_number: '${{ inputs.issue_number }}'
+            };
+            const issueData = await getIssueData.getIssueData(github, context, inputs);
+            const issueBody = issueData.body || '';
+            
+            console.log('Processing issue:', issueData.number);
+            
+            // Parse issue data - prefer metadata over form data
+            let formData = parseIssue.parseMetadata(issueBody);
+            const isFirstSync = !formData;
+            
+            if (isFirstSync) {
+              formData = parseIssue.parseFormData(issueBody);
+              console.log('First sync - parsed form data:', formData);
+            } else {
+              console.log('Using existing metadata:', formData);
+            }
+            
+            // Sync to project
+            await syncProject.syncToProject(github, context, issueData, formData);
+            
+            // Clean up issue body after successful sync
+            if (isFirstSync) {
+              console.log('Cleaning up form data from issue body');
+              
+              const content = parseIssue.extractContent(issueBody);
+              const metadata = {
+                status: formData.status,
+                release_phase: formData.release_phase,
+                area: formData.area,
+                last_sync: new Date().toISOString()
+              };
+              
+              const cleanBody = parseIssue.buildCleanBody(content, metadata);
+              
+              // Update issue with clean body
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueData.number,
+                body: cleanBody
+              });
+              
+              console.log('Issue body cleaned and metadata stored');
+            } else {
+              // Just update metadata timestamp for subsequent runs
+              const updatedMetadata = {
+                ...formData,
+                last_sync: new Date().toISOString()
+              };
+              
+              const newBody = issueBody.replace(
+                /<!-- ROADMAP_SYNC: .*? -->/,
+                `<!-- ROADMAP_SYNC: ${JSON.stringify(updatedMetadata)} -->`
+              );
+              
+              if (newBody !== issueBody) {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueData.number,
+                  body: newBody
+                });
+                
+                console.log('Metadata updated');
+              }
+            }
+            
+            console.log('Sync completed successfully!');

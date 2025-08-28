@@ -1,23 +1,22 @@
 name: New Feature
-description: Default New Feature Template
-title: ""
+description: Create a new roadmap enhancement item
 labels: [enhancement]
 body:
-  - type: input
-    id: repository
-    attributes:
-      label: Repository Link
-      description: Link to the relevant repository or PR
-      placeholder: https://github.com/...
-    validations:
-      required: true
-  
   - type: textarea
     id: description
     attributes:
       label: Description
       description: Detailed description of the feature
       placeholder: Describe the feature implementation
+    validations:
+      required: true
+  
+  - type: input
+    id: repository
+    attributes:
+      label: Repository Link
+      description: Link to the relevant repository or PR
+      placeholder: https://github.com/...
     validations:
       required: true
   
@@ -41,7 +40,7 @@ body:
         - Library
         - Research
         - Wallet
-  
+      default: 3 # index of Research selection
     validations:
       required: true
   
@@ -71,6 +70,7 @@ body:
         - Q1 2026 - Jan-Mar
         - Q2 2026 - Apr-Jun
         - Future
+      default: 5 # index of Future selection
     validations:
       required: true
   
@@ -83,6 +83,8 @@ body:
         Lead: @username
         Contributors: @user1, @user2
         External experts: @expert1
+      value: |
+        Lead: @
+        Contributors: @
     validations:
       required: false
-
