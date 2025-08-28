@@ -1,0 +1,88 @@
+name: New Feature
+description: Default New Feature Template
+title: ""
+labels: [enhancement]
+body:
+  - type: input
+    id: repository
+    attributes:
+      label: Repository Link
+      description: Link to the relevant repository or PR
+      placeholder: https://github.com/...
+    validations:
+      required: true
+  
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Detailed description of the feature
+      placeholder: Describe the feature implementation
+    validations:
+      required: true
+  
+  - type: textarea
+    id: purpose
+    attributes:
+      label: Purpose
+      description: Why is this feature needed?
+      placeholder: Explain the purpose and benefits
+    validations:
+      required: false
+  
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which area does this feature belong to?
+      options:
+        - Documentation
+        - Indexer
+        - Library
+        - Research
+        - Wallet
+  
+    validations:
+      required: true
+  
+  - type: dropdown
+    id: status
+    attributes:
+      label: Status
+      description: What is the current status of this feature?
+      options:
+        - Planned
+        - Research
+        - In Progress
+        - Stable
+        - Done
+    validations:
+      required: true
+  
+  - type: dropdown
+    id: release_phase
+    attributes:
+      label: Release Phase
+      description: When is the feature expected to be released?
+      options:
+        - Past
+        - Q3 2025 - Jul-Sep
+        - Q4 2025 - Oct-Dec
+        - Q1 2026 - Jan-Mar
+        - Q2 2026 - Apr-Jun
+        - Future
+    validations:
+      required: true
+  
+  - type: textarea
+    id: dev_team
+    attributes:
+      label: Development Team
+      description: Tag people who work on this
+      placeholder: |
+        Lead: @username
+        Contributors: @user1, @user2
+        External experts: @expert1
+    validations:
+      required: false
+
