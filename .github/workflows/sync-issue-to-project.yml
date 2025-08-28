@@ -26,14 +26,18 @@ jobs:
         with:
           github-token: ${{ secrets.PROJECT_V2_SYNC_TOKEN }}
           script: |
-            // Skip if this edit was made by the workflow itself
-            if (context.eventName === 'issues' && context.payload.action === 'edited') {
-              const sender = context.payload.sender;
-              if (sender.login === 'github-actions[bot]' || sender.type === 'Bot') {
-                console.log('Skipping - issue was edited by workflow/bot');
-                return;
-              }
+            // Load change detection script
+            const changeDetection = require('./.github/scripts/change-detection.js');
+            
+            // Determine if workflow should run
+            const decision = changeDetection.shouldRunWorkflow(context);
+            
+            if (!decision.shouldRun) {
+              console.log(`🛑 Workflow stopped: ${decision.reason}`);
+              return;
             }
+            
+            console.log(`✅ Workflow proceeding: ${decision.reason}`);
             
             // Load external scripts
             const getIssueData = require('./.github/scripts/get-issue-data.js');
@@ -49,24 +53,41 @@ jobs:
             
             console.log('Processing issue:', issueData.number);
             
-            // Parse issue data - prefer metadata over form data
-            let formData = parseIssue.parseMetadata(issueBody);
-            const isFirstSync = !formData;
+            // Parse issue data - prefer form data when changes detected, otherwise use metadata
+            let formData = parseIssue.parseFormData(issueBody);
+            const existingMetadata = parseIssue.parseMetadata(issueBody);
             
-            if (isFirstSync) {
-              formData = parseIssue.parseFormData(issueBody);
-              console.log('First sync - parsed form data:', formData);
+            // If no form fields present, use existing metadata
+            if (!formData.status && !formData.area && !formData.release_phase && existingMetadata) {
+              formData = existingMetadata;
+              console.log('No form fields found, using existing metadata:', formData);
             } else {
-              console.log('Using existing metadata:', formData);
+              // Merge form data with existing metadata for any missing fields
+              if (existingMetadata) {
+                formData = {
+                  status: formData.status || existingMetadata.status,
+                  release_phase: formData.release_phase || existingMetadata.release_phase,
+                  area: formData.area || existingMetadata.area
+                };
+                console.log('Merged form data with existing metadata:', formData);
+              } else {
+                console.log('Using form data for first sync:', formData);
+              }
             }
             
             // Sync to project
             await syncProject.syncToProject(github, context, issueData, formData);
             
-            // Clean up issue body after successful sync
-            if (isFirstSync) {
-              console.log('Cleaning up form data from issue body');
-              
+            // Always clean up form data after successful sync
+            console.log('Cleaning up form data from issue body');
+            
+            // Check if issue has form fields that need cleaning
+            const hasFormFields = issueBody.includes('## Status') || 
+                                 issueBody.includes('## Area') || 
+                                 issueBody.includes('## Release Phase');
+            
+            if (hasFormFields) {
+              // Extract content and rebuild clean body
               const content = parseIssue.extractContent(issueBody);
               const metadata = {
                 status: formData.status,
@@ -85,29 +106,9 @@ jobs:
                 body: cleanBody
               });
               
-              console.log('Issue body cleaned and metadata stored');
+              console.log('Form fields cleaned up and metadata updated');
             } else {
-              // Just update metadata timestamp for subsequent runs
-              const updatedMetadata = {
-                ...formData,
-                last_sync: new Date().toISOString()
-              };
-              
-              const newBody = issueBody.replace(
-                /<!-- ROADMAP_SYNC: .*? -->/,
-                `<!-- ROADMAP_SYNC: ${JSON.stringify(updatedMetadata)} -->`
-              );
-              
-              if (newBody !== issueBody) {
-                await github.rest.issues.update({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueData.number,
-                  body: newBody
-                });
-                
-                console.log('Metadata updated');
-              }
+              console.log('No form fields to clean up, no changes needed');
             }
             
             console.log('Sync completed successfully!');

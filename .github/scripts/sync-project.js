@@ -12,7 +12,7 @@ const AREA_FIELD_ID = 'PVTSSF_lADOCFSeTs4BBcFjzg0IqfQ';
 // Map status values to project field IDs
 const statusMapping = {
   'Planned': '3edbf0a4',
-  'Research': 'f75ad846', 
+  'Idea': 'f75ad846', 
   'In Progress': '47fc9ee4',
   'Stable': '54a9ef9d',
   'Done': '98236657'

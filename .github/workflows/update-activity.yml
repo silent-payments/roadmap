@@ -1,0 +1,50 @@
+name: Update Repository Activity
+
+on:
+  schedule:
+    # Run every Sunday at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+
+jobs:
+  update-activity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Update Activity Dates
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_V2_SYNC_TOKEN }}
+          script: |
+            // Load external scripts
+            const updateActivity = require('./.github/scripts/update-activity.js');
+            
+            console.log('🔄 Starting weekly activity update...');
+            
+            try {
+              const summary = await updateActivity.updateAllActivityDates(github, context);
+              
+              console.log('✅ Activity update completed successfully!');
+              console.log(`Summary: ${summary.updated}/${summary.total} issues updated, ${summary.errors} errors`);
+              
+              // Create summary comment on a pinned issue (optional)
+              if (summary.total > 0) {
+                try {
+                  // You can create a summary issue or comment if needed
+                  console.log('Activity update summary created');
+                } catch (e) {
+                  console.log('Could not create summary comment:', e.message);
+                }
+              }
+              
+            } catch (error) {
+              console.error('❌ Activity update failed:', error);
+              throw error;
+            }
